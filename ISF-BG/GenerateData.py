@@ -49,17 +49,27 @@ def CreateISFData(BloodGlucose,Times, skindistanceum, D,T,P,F,A,Rstarling,sigmap
         if i!=(len(BloodGlucose)-1):
             timejump = math.floor(int(Times[i+1]-Times[i])/(T*1e9))#1e9
             for j in range(timejump):
-                array=Timestep(BloodGlucose[i],array,arraylength,isfK,bloodK,T,D)
-                if i==0 and j<100:
-                    print(f'\n\nTimestep {j} for measurement {i}:')
-                    print(array)
+                source = BloodGlucose[i]+(j/timejump)*(BloodGlucose[i+1]-BloodGlucose[i])
+                array=Timestep(source,array,arraylength,isfK,bloodK,T,D)
     return SensorGlucose
 
+def BigGeneration():
+    #Data finding
+    data = ReadData.getDataPandas(None,0)
+    #ID finding
+    UniqueIDs=data['ID'].unique()
+    print(len(UniqueIDs))
+    #train/test split
+    #ID processing
+    #make file
+
+BigGeneration()
+'''
 data = ReadData.getDataPandas(100,0)
 data= data[data['ID']==782]
 timelist = np.flip(data['time'].values)
 bloodlist = np.flip(data['glucose'].values)
-isfdata = CreateISFData(bloodlist,timelist,40,1e-10,0.01,15,3,1,0.2,25,15,35,0.978)#so problem is x is in meters rn, 100meters in total, so go to 1cm which is 10^4 smaller
+isfdata = CreateISFData(bloodlist,timelist,40,1e-10,0.01,25,5,1,0.2,25,15,35,0.978)#so problem is x is in meters rn, 100meters in total, so go to 1cm which is 10^4 smaller
 fig, axs = plt.subplots()
 axs.plot(timelist,bloodlist,color='red')
 axs.plot(timelist,isfdata,color='green')
@@ -69,3 +79,4 @@ axs.grid(True,axis='x',which='minor',linewidth='0.5')
 axs.xaxis.set_major_formatter(mpld.DateFormatter('%H:%M'))
 axs.xaxis.set_minor_locator(mpld.MinuteLocator(byminute=None,interval=5,tz=None))
 plt.show()
+'''
