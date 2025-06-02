@@ -1,12 +1,19 @@
 import numpy as np
 import math
 import datetime
-import ReadData
 import matplotlib.pyplot as plt
 import matplotlib.dates as mpld
 import random
 import sys
+import pandas as pd
+import os
+import csv
 
+def getDataPandas(length, start):
+    dirname = os.path.dirname(__file__)
+    filename = os.path.join(dirname, 'HDeviceCGM.txt')
+    list = pd.read_csv(filename,skiprows=start,nrows=length,sep='|',dtype={'ID':'int','Bglucose':'float','type':'string'},parse_dates=['time'],date_format="%H:%M:%S",usecols=['ID','Bglucose','time','type'],header=0,names=['0','ID','1','2','3','time','days','internaltime','type','Bglucose'])
+    return list
 def Timestep(source,array,length,isfK,bloodK,T,D):
     buffer = np.zeros(length)
     for i in range(length):
@@ -47,15 +54,18 @@ def CreateISFData(BloodGlucose,Times, skindistanceum, D,T,P,F,A,Rstarling,sigmap
         print(f'Processing: {i+1}/{len(BloodGlucose)} steps')
         if i!=(len(BloodGlucose)-1):
             timejump = math.floor(int(Times[i+1]-Times[i])/(T*1e9))#1e9
-            print(timejump)
+            if timejump<0:
+                print('Error: Timejump negative')
+            #print(timejump)
             for j in range(timejump):
                 source = BloodGlucose[i]+(j/timejump)*(BloodGlucose[i+1]-BloodGlucose[i])
                 array=Timestep(source,array,arraylength,isfK,bloodK,T,D)
+                #print(array[sensordistance])
     return SensorGlucose
 
 def BigGeneration(trainfrac):
     #Data finding
-    data = ReadData.getDataPandas(1000000,0)
+    data = getDataPandas(1000000,0)
     data = data[data['type']=='CGM']
     #ID finding
     UniqueIDs=data['ID'].unique()
@@ -81,7 +91,7 @@ def BigGeneration(trainfrac):
     for i in UniqueIDs[:2]:
         print(f'\n\nStarting on ID {i}')
         #parameters
-        Dconst = random.uniform(1e-10,3e-10)
+        Dconst = random.uniform(1,3)*1e-10
         Rstar = random.uniform(0,0.2)
         Pconst = random.uniform(15,30)
         Sporting = (random.random()<0.5)
@@ -111,9 +121,41 @@ def BigGeneration(trainfrac):
     #make file
     print(data)
 
-BigGeneration(0.8)
+def GenerateID(id,train):
+    data = getDataPandas(100,0)
+    data = data[data['type']=='CGM']
+    #get data of ID
+    data=data[data['ID']==id]
+    bg = np.flip(data['Bglucose'].values)
+    times = np.flip(data['time'].values) #pls reorder them
+
+    #Determine parameters
+    Dconst = random.uniform(1,3)*1e-10
+    Rstar = random.uniform(0,0.2)
+    Pconst = random.uniform(15,30)
+    Sporting = (random.random()<0.5)
+    if Sporting:
+        Fconst = random.uniform(5,15)
+    else:
+        Fconst = random.uniform(1,3)
+    print(f'Parameters:\n\tD: {Dconst}\n\tRstar: {Rstar}\n\tP: {Pconst}\n\tSport: {Sporting}\n\tF: {Fconst}')
+    #Generate data
+    sg = CreateISFData(bg,times,40,Dconst,0.0025,Pconst,Fconst,1,Rstar,25,15,35,0.978)#1.5e-10,0.005,25,5,1,0.2,25,15,35,0.978)
+    #write data
+    field_names = ['id','time','bloodglucose','sensorglucose','D','P','F','Rstarling','Sport','train']
+    with open('ISF-BG/piep.csv','a') as f_object:
+        print('Writing...')
+        dictwriter_object = csv.DictWriter(f_object, fieldnames=field_names)
+        for i in range(len(bg)):
+            dictwriter_object.writerow({'id':id,'time':times[i],'bloodglucose':bg[i],'sensorglucose':sg[i],'D':Dconst,'P':Pconst,'F':Fconst,'Rstarling':Rstar,'Sport':Sporting,'train':train})
+        f_object.close()
+
+
+
+#BigGeneration(0.8)
+GenerateID(,True)
 '''
-data = ReadData.getDataPandas(100,0)
+data = getDataPandas(100,0)
 data= data[data['ID']==782]
 timelist = np.flip(data['time'].values)
 bloodlist = np.flip(data['Bglucose'].values)
@@ -124,6 +166,8 @@ axs.plot(timelist,isfdata,color='green')
 axs.legend(['Blood Glucose','Sensor Glucose'])
 axs.grid(True,which='major',linewidth='1')
 axs.grid(True,axis='x',which='minor',linewidth='0.5')
+axs.set_xlabel('Device time (hour:minute)')
+axs.set_ylabel('Glucose (mg/L)')
 axs.xaxis.set_major_formatter(mpld.DateFormatter('%H:%M'))
 axs.xaxis.set_minor_locator(mpld.MinuteLocator(byminute=None,interval=5,tz=None))
 plt.show()
