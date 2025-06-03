@@ -11,8 +11,8 @@ import csv
 
 def getDataPandas(length, start):
     dirname = os.path.dirname(__file__)
-    filename = os.path.join(dirname, 'HDeviceCGM.txt')
-    list = pd.read_csv(filename,skiprows=start,nrows=length,sep='|',dtype={'ID':'int','Bglucose':'float','type':'string'},parse_dates=['time'],date_format="%H:%M:%S",usecols=['ID','Bglucose','time','type'],header=0,names=['0','ID','1','2','3','time','days','internaltime','type','Bglucose'])
+    filename = os.path.join(dirname, 'HandalteredCGM.txt')
+    list = pd.read_csv(filename,skiprows=start,nrows=length,sep='|',dtype={'ID':'int','Bglucose':'float','type':'string'},parse_dates=['time'],date_format="%H:%M:%S",usecols=['ID','Bglucose','time','type'],header=0,names=['0','1','ID','2','3','time','days','internaltime','type','Bglucose'])
     return list
 def Timestep(source,array,length,isfK,bloodK,T,D):
     buffer = np.zeros(length)
@@ -122,7 +122,7 @@ def BigGeneration(trainfrac):
     print(data)
 
 def GenerateID(id,train):
-    data = getDataPandas(100,0)
+    data = getDataPandas(None,0)
     data = data[data['type']=='CGM']
     #get data of ID
     data=data[data['ID']==id]
