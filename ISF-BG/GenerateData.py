@@ -153,7 +153,7 @@ def GenerateID(id,train):
 
 
 #BigGeneration(0.8)
-GenerateID(,True)
+#GenerateID(,False)
 '''
 data = getDataPandas(100,0)
 data= data[data['ID']==782]
