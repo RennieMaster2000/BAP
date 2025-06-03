@@ -1,0 +1,101 @@
+import numpy as np
+import math
+import pandas as pd
+import os
+
+def getDataPandas():
+    dirname = os.path.dirname(__file__)
+    filename = os.path.join(dirname, 'piep.csv')
+    list = pd.read_csv(filename,sep=',',dtype={'id':'int','bloodglucose':'float','sensorglucose':'float','train':'bool'},parse_dates=['time'],usecols=['id','bloodglucose','time','train','sensorglucose'],header=0)#date_format="%H:%M:%S"
+    return list
+def isfConstant():
+    Kf = 0.978
+    sigmapi = 25
+    Pa = 35
+    Pv = 15
+    Rstarling = 0.1
+    Jgain=Kf*(0.5*sigmapi**2-sigmapi*Pa+0.5*Pa**2)/(Pv-Pa)
+    Jloss=Kf*(0.5*sigmapi**2-sigmapi*Pv+0.5*Pv**2)/(Pv-Pa)
+    return Rstarling*Jloss/(Jgain+Jloss)
+
+def SourceConstant(Kb,timejump):
+    ####returns source constant as described in paper
+    SensorX = 20
+    array = np.zeros(25)
+    array = Simulate(timejump,array,1,Kb)
+    print(f'Array: {array}\n\n')
+    return array[SensorX]
+    '''
+    global sourceconstantDict
+    if (Kb,timejump) in sourceconstantDict:
+        #reuse old constant
+        return sourceconstantDict[(Kb,timejump)]
+    else:
+        #Generate constant through simulation
+    '''
+
+def Simulate(timejump,initial,source,Kb):
+    #returns array with values of simulation with initial condition 'initial' and source amount 'source', simulated for 'timejump' time
+    print(f'Simulation with timejump={timejump}, source={source}, Kb={Kb}')
+    D = 2e-10
+    T = 0.005
+    array = initial
+    timesteps = math.floor(timejump/T)
+    Ki = isfConstant()
+    for i in range(timesteps):
+        buffer = np.zeros(25)
+        buffer[24] = array[24]+T*D*(array[23]-array[24])
+        buffer[0]= array[0]+T*(D*(array[1]-array[0])+(source*Kb+array[0]*(Ki-1)))
+        for j in range(1,24):
+            buffer[j]=array[j]+T*D*(array[j+1]+array[j-1]-2*array[j])
+        array = buffer
+    return array
+
+def bloodConstant(P):
+    Kf = 0.978
+    sigmapi = 25
+    Pa = 35
+    Pv = 15
+    Rstarling = 0.1
+    F = 4
+    A = 1
+    Jgain=Kf*(0.5*sigmapi**2-sigmapi*Pa+0.5*Pa**2)/(Pv-Pa)
+    Jloss=Kf*(0.5*sigmapi**2-sigmapi*Pv+0.5*Pv**2)/(Pv-Pa)
+    return (1 - (1-math.exp(-P*A/F))*F/P)*(1-Rstarling)+Rstarling*Jgain/(Jgain+Jloss)
+
+
+def CalibrateKb(Sensor,Blood):
+    return (Sensor/Blood)*(1-isfConstant())
+
+def GenerateBG(SensorG,times,InitialBG):
+    ####returns BG estimates
+    sensorx = 20
+    EstimatedBG = np.zeros(len(SensorG))
+    EstimatedBG[0]=InitialBG
+    array = np.ones(25)*SensorG[0]
+    #Calibration
+    Kb = CalibrateKb(SensorG[0],InitialBG)
+    #Cycling through array
+    for i in range(1,len(SensorG)):
+        print(f'Step {i}/{len(SensorG)}')
+        timejump = int(times[i]-times[i-1])*1e-9
+        #simulate sourceless
+        arraySL = array.copy()
+        arraySL = Simulate(timejump,arraySL,0,Kb)
+        #Error
+        Sc = SourceConstant(Kb,timejump)
+        bloodavg = (SensorG[i]-arraySL[sensorx])/Sc
+        print(f'Source constant: {Sc}, difference: {SensorG[i]-arraySL[sensorx]}, bloodavg: {bloodavg}')
+        EstimatedBG[i]=1.5*bloodavg -0.5*EstimatedBG[i-1]#extrapolation
+        #update initial
+        array = Simulate(timejump,array,bloodavg,Kb)
+    return EstimatedBG
+
+data = getDataPandas()
+data = data[data['train']==True]
+ids = data['id'].unique()
+idd = ids[0]
+data = data[data['id']==idd]
+print(idd)
+EstimateBG=GenerateBG(data['sensorglucose'].values,data['time'].values,data['bloodglucose'].values[0])
+print(EstimateBG)
