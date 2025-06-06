@@ -15,7 +15,7 @@ K = 0.5
 Xs = 0
 l = 49
 Xk = 45
-measureperiod = 10000
+measureperiod = 300
 
 # Init
 bi.InitN(l+1)
@@ -61,3 +61,4 @@ plt.plot(WithoutSourceList,color='red')
 plt.xlabel('Space(unit steps)')
 plt.ylabel('Concentration(unitless)')
 plt.legend(['Source','Sourceless'])
+plt.show()

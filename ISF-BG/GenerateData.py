@@ -153,7 +153,10 @@ def GenerateID(id,train):
 
 
 #BigGeneration(0.8)
-#GenerateID(,False)
+data = getDataPandas(None,0)
+uniqueids = data['ID'].unique()[10:]
+for id in uniqueids:
+    GenerateID(id,False)
 '''
 data = getDataPandas(100,0)
 data= data[data['ID']==782]
