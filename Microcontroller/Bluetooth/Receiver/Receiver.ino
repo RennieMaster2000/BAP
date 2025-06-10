@@ -6,6 +6,7 @@
 
 unsigned char lastCount = 99;
 void setup(){
+    unsigned char newCount;
     //Initialize
     Serial.begin(9600);
     Serial.print("Welcome, Initialising...\n");
@@ -36,7 +37,7 @@ void setup(){
     while(1){
       
       if(peripheral.connected()){
-          unsigned char newCount = countCharacteristic.value();
+          newCount = countCharacteristic.value();
           if(newCount!=lastCount){
             NewCharge(chargeCharacteristic.value());
           }
@@ -51,5 +52,5 @@ void loop(){
 void NewCharge(int charge){
     Serial.print("New charge: ");
     Serial.print(charge);
-    Serial.print("\n")
+    Serial.print("\n");
 }
