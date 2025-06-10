@@ -1,75 +1,105 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Jun 10 11:51:57 2025
-
-@author: tinke
-"""
+import pandas as pd
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from ChargeISFG.SensorClass.UKFClass import GlucoseUKF
 
-np.random.seed(3)
+np.random.seed(1)
+sensor_noise_var = 3
+dt=300
 
-# --- Simulation Parameters ---
-dt = 5 / 60  # 5 minutes in hours
-T = 24 * 14  # total hours
-time = np.arange(0, T, dt)
-sensor_noise_var = 6
+def getDataPandas():
+    script_dir = os.path.dirname(__file__)
+    root_dir = os.path.dirname(script_dir)
+    filename = os.path.join(root_dir, 'ISF-BG', 'piep.csv')
+    data = pd.read_csv(
+        filename,
+        sep=',',
+        dtype={'id':'int', 'bloodglucose':'float', 'sensorglucose':'float', 'train':'bool'},
+        parse_dates=['time'],
+        usecols=['id', 'bloodglucose', 'time', 'train', 'sensorglucose'],
+        header=0
+    )
+    return data
 
-# --- Simulated True Glucose ---
-base_glucose = 100 + 0 * np.sin(2 * np.pi * time / (24 * 7))  # 7-day rhythm
-
-meal_times = {'breakfast': 8, 'lunch': 13, 'dinner': 19}
-def meal_spike(t, meal_hour, amplitude=40, width=1.5):
-    return amplitude * np.exp(-0.5 * ((t - meal_hour) / width) ** 2)
-
-true_glucose = base_glucose.copy()
-for day in range(14):
-    for meal, hour in meal_times.items():
-        amp = np.random.normal(35, 5)
-        width = np.random.normal(1.2, 0.3)
-        center = day * 24 + hour + np.random.normal(0, 0.2)
-        true_glucose += meal_spike(time, center, amp, width)
-
-
-true_glucose_dot = np.gradient(true_glucose, dt)
+data = getDataPandas()
+specific_id = 183
+data = data[data['id'] == specific_id]
+data_len = len(data)
 
 
-true_sensitivity = 2 - (2 * 0.02 * time / 24)**2
-sensor_output = true_sensitivity * true_glucose + 1*np.random.normal(0, sensor_noise_var, size=len(time))
+
+#data = data.sort_values('time')
+
+# Calculate time differences (in seconds) and cumulative time
+data['time_diff'] = data['time'].diff().dt.total_seconds().fillna(0)  # First row has diff=0
+data['cumulative_time'] = data['time_diff'].cumsum()  # t=0 for first measurement
+
+print(data)
+print(data_len)
+init_sensor_sensitivity = 3
+true_sensitivity = []
+@np.vectorize
+def sensor_sensitivity(t):
+    sensor_decay = 0.02 * t / 86400
+    sensitivity = init_sensor_sensitivity * (1 - sensor_decay)
+    true_sensitivity.append(sensitivity)
+    return sensitivity
+
+def sensor_charge(measured_glucose, t):
+    return measured_glucose * sensor_sensitivity(t)
+
+# Apply sensor_charge to each row
+data['sensorcharge'] = data.apply(
+    lambda row: sensor_charge(row['sensorglucose'], row['cumulative_time']),
+    axis=1
+)
+#print(data[['time_diff']])
+#print(data[['time', 'bloodglucose', 'sensorglucose', 'sensorcharge']])
+
+sensor_output = data['sensorcharge'].values + np.random.normal(0, sensor_noise_var, size=data_len)*init_sensor_sensitivity
+true_glucose = data['bloodglucose']
+ref_glucose = data['sensorglucose']
+time = data['cumulative_time']
 
 
 # --- UKF Initialization ---
-ukf_model = GlucoseUKF(initial_glucose=true_glucose[0], initial_a=0, dt=dt, measurement_noise=sensor_noise_var**2)
+ukf_model = GlucoseUKF(initial_glucose=sensor_output[0]/init_sensor_sensitivity,
+                       initial_a=0,
+                       dt=dt,
+                       measurement_noise=sensor_noise_var**2,
+                       process_noise = (1.0, 0.3, 0.000005))
 
 
 # --- Run UKF with periodic calibration ---
-estimates = np.zeros((len(time), 3))
-calibration_indices = np.arange(0, len(time), int(4 / dt))  # calibrate every 8 hours
+estimates = np.zeros((data_len, 3))
+calibration_indices = np.arange(0, data_len, int(1200*20 / dt))  # change 1200*20 to change cal. interval. 300 -> every minute, 8*60*60> every 8 hour
 
-for k in range(len(time)):
+for k in range(data_len):
     est_glucose = ukf_model.update(sensor_output[k])
     if k in calibration_indices:
-        ukf_model.calibrate(true_glucose[k] + 1*np.random.normal(0, 2))
+        ukf_model.calibrate(ref_glucose[k] + 0*np.random.normal(0, 2))
     estimates[k] = ukf_model.get_current_estimate()
 
 # --- Plotting ---
+true_sensitivity = true_sensitivity[::2]
 plt.figure(figsize=(12, 6))
 plt.plot(time, true_glucose, label="True Glucose")
+plt.plot(time, ref_glucose, label="ISF Glucose")
 plt.plot(time, estimates[:, 0], label="Estimated Glucose")
 plt.scatter(time, sensor_output / true_sensitivity, color='gray', alpha=0.3, s=10, label="Raw Sensor Output")
-plt.scatter(time[calibration_indices], true_glucose[calibration_indices], color='red', label="Finger Prick", zorder=5)
-plt.xlabel("Time (hours)")
+plt.scatter(time[calibration_indices], ref_glucose[calibration_indices], color='red', label="Finger Prick", zorder=5)
+plt.xlabel("Time (sec)")
 plt.ylabel("Glucose")
 plt.title("UKF Glucose Estimation with Sensor Drift and Slope Tracking")
 plt.legend()
 plt.grid(True)
-plt.xlim(24 * 0, 24 * 5)
-plt.ylim(80, 160)
+plt.xlim(0, 8000)
+plt.ylim(150, 210)
 plt.show()
 
 plt.figure(figsize=(12, 6))
-plt.plot(time, np.abs(true_glucose - estimates[:, 0]) / true_glucose * 100)
+plt.plot(time, np.abs(ref_glucose - estimates[:, 0]) / true_glucose * 100)
 plt.grid(True)
 plt.ylim(0, 10)
 plt.ylabel("Relative Error (%)")
@@ -77,11 +107,11 @@ plt.title("Glucose Estimation Error")
 plt.show()
 
 plt.figure(figsize=(12, 6))
-plt.plot(time, true_sensitivity, label='True sensitivity')
-plt.plot(time, estimates[:, 2], label='Estimated Sensitivity')
-plt.vlines(time[calibration_indices], 1, 2.3, alpha=0.3)
+plt.plot(time.values, true_sensitivity, label='True sensitivity')
+plt.plot(time.values, estimates[:, 2], label='Estimated Sensitivity')
+#plt.vlines(time[calibration_indices], 1, 2.3, alpha=0.3)
 plt.legend()
-plt.ylim(1.5, 2.3)
+plt.ylim(2.8,3.2)
 plt.grid()
 plt.title("Sensitivity Tracking")
 plt.show()
