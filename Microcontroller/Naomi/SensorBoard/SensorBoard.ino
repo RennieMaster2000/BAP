@@ -26,9 +26,9 @@
 #include <Adafruit_LittleFS.h>
 #include <InternalFileSystem.h>
 
-#define integratorPin 6
-#define sensorPin 7
-#define chargePin 6
+#define integratorPin 1
+#define sensorPin 2
+#define chargePin A0
 
 // BLE Service
 BLEDfu  bledfu;  // OTA DFU service
@@ -38,6 +38,7 @@ BLEBas  blebas;  // battery
 
 void setup()
 {
+  initPins();
   Serial.begin(115200);
   
 
@@ -132,16 +133,26 @@ void loop()
     Serial.write(charBuf);
     Serial.write('\n');
     bleuart.write(charBuf);
+    if ((charBuf[0]=='%')&&(charBuf[1]=='1')){
+      measureCycle();
+    }
   }
 
   // Forward from BLEUART to HW Serial
   if(bleuart.available()){
     Serial.write("[PC(RX)]: ");
+    char charBuf[20];
+    int i = 0;
     while ( bleuart.available() )
     {
       uint8_t ch;
       ch = (uint8_t) bleuart.read();
+      charBuf[i] = ch;
+      i++;
       Serial.write(ch);
+    }
+    if ((charBuf[0]=='%')&&(charBuf[1]=='1')){
+      measureCycle();
     }
   }
 }
@@ -172,11 +183,13 @@ void disconnect_callback(uint16_t conn_handle, uint8_t reason)
   Serial.println();
   Serial.print("Disconnected, reason = 0x"); Serial.println(reason, HEX);
 }
-void InitPins(void){
+void initPins(void){
   pinMode(sensorPin, OUTPUT);
   pinMode(integratorPin,OUTPUT);
+  digitalWrite(sensorPin,LOW);
+  digitalWrite(integratorPin,LOW);
 }
-void send(char* str){
+void sendM(char* str){
   Serial.write("[Sensor(TX)]: ");
   Serial.write(str);
   Serial.write('\n');
@@ -184,25 +197,34 @@ void send(char* str){
 }
 void sendMeasurement(int charge){
   String chargeString = String(charge);
-  send("(Meas)");
-  send(chargeString.c_str());
+  sendM("(Meas)");
+  char chargeChar[20];
+  chargeString.toCharArray(chargeChar,20);
+  sendM(chargeChar);
 }
 void measureCycle(void){
+  Serial.print("Starting measurement\n");
   //Sensor on
   digitalWrite(sensorPin,HIGH);
+  Serial.print("Sensor on\n");
   //Wait till start integration window
   delay(2000);//2s
   //Integrator on
   digitalWrite(integratorPin,HIGH);
+  Serial.print("Integrator on\n");
   //Wait till end integration window
   delay(20000);//22s
   //Integrator off, send measurement
   sendMeasurement(analogRead(chargePin));
+  Serial.print("Send measurement\n");
   digitalWrite(integratorPin,LOW);
+  Serial.print("Integrator off\n");
   //Wait till end meaurement window
   delay(1000);//1s
   //Sensor off
   digitalWrite(sensorPin,LOW);
+  Serial.print("Sensor off\n");
   //Wait till end measurement cycle
-  delay(277000);//5min/300s
+  //delay(277000);//5min/300s
+  Serial.print("Finished measurement\n");
 }
