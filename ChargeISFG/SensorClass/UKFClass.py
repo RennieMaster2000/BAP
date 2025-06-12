@@ -13,18 +13,18 @@ from filterpy.kalman import MerweScaledSigmaPoints
 
 class GlucoseUKF:
     def __init__(self,
-                 initial_glucose: float = 90.0,
-                 initial_a: float = 0.5,
+                 initial_glucose: float = 100.0,
+                 initial_a: float = 0.0,
                  dt: float = 1.0,
-                 process_noise: Tuple[float, float, float] = (1.0, 0.3, 0.000005),
-                 measurement_noise: float = 49):
+                 process_noise: Tuple[float, float, float] = (1.0, 1.0, 0.0),
+                 measurement_noise: float = 0):
         self.dt = dt
-        self.points = MerweScaledSigmaPoints(n=3, alpha=0.1, beta=2.0, kappa=0)
+        self.points = MerweScaledSigmaPoints(n=3, alpha=1e-3, beta=2.0, kappa=0)
         self.ukf = UKF(dim_x=3, dim_z=1, fx=self.fx, hx=self.hx, dt=dt, points=self.points)
 
         # Initial state: [Glucose, Glucose change rate, sensor gain 'a']
         self.ukf.x = np.array([initial_glucose, 0.0, initial_a])
-        self.ukf.P *= 10
+        self.ukf.P *= 100
 
         self.ukf.Q = np.diag(process_noise)
         self.ukf.R = np.array([[measurement_noise]])

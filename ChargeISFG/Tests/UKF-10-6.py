@@ -17,7 +17,7 @@ time = np.arange(0, T, dt)
 sensor_noise_var = 6
 
 # --- Simulated True Glucose ---
-base_glucose = 100 + 0 * np.sin(2 * np.pi * time / (24 * 7))  # 7-day rhythm
+base_glucose = 100 + 1 * np.sin(2 * np.pi * time / (24 * 7))  # 7-day rhythm
 
 meal_times = {'breakfast': 8, 'lunch': 13, 'dinner': 19}
 def meal_spike(t, meal_hour, amplitude=40, width=1.5):
@@ -35,23 +35,27 @@ for day in range(14):
 true_glucose_dot = np.gradient(true_glucose, dt)
 
 
-true_sensitivity = 2 - (2 * 0.02 * time / 24)**2
+true_sensitivity = 2 - (2 * 0.02 * time / 24)**1
 sensor_output = true_sensitivity * true_glucose + 1*np.random.normal(0, sensor_noise_var, size=len(time))
 
-
 # --- UKF Initialization ---
-ukf_model = GlucoseUKF(initial_glucose=true_glucose[0], initial_a=0, dt=dt, measurement_noise=sensor_noise_var**2)
+ukf_model = GlucoseUKF(initial_glucose=true_glucose[0],
+                       initial_a=0,
+                       dt=dt,
+                       measurement_noise=sensor_noise_var**2,
+                       process_noise = (1.0, 1.0, 0.000005))
 
 
 # --- Run UKF with periodic calibration ---
 estimates = np.zeros((len(time), 3))
-calibration_indices = np.arange(0, len(time), int(4 / dt))  # calibrate every 8 hours
+calibration_indices = np.arange(0, len(time), int(8 / dt))  # calibrate every 8 hours
 
 for k in range(len(time)):
     est_glucose = ukf_model.update(sensor_output[k])
     if k in calibration_indices:
         ukf_model.calibrate(true_glucose[k] + 1*np.random.normal(0, 2))
     estimates[k] = ukf_model.get_current_estimate()
+
 
 # --- Plotting ---
 plt.figure(figsize=(12, 6))
@@ -73,6 +77,7 @@ plt.plot(time, np.abs(true_glucose - estimates[:, 0]) / true_glucose * 100)
 plt.grid(True)
 plt.ylim(0, 10)
 plt.ylabel("Relative Error (%)")
+plt.xlabel("Time (hours)")
 plt.title("Glucose Estimation Error")
 plt.show()
 
@@ -81,7 +86,8 @@ plt.plot(time, true_sensitivity, label='True sensitivity')
 plt.plot(time, estimates[:, 2], label='Estimated Sensitivity')
 plt.vlines(time[calibration_indices], 1, 2.3, alpha=0.3)
 plt.legend()
-plt.ylim(1.5, 2.3)
+plt.ylim(1.2, 2.2)
+plt.xlabel("Time (hours)")
 plt.grid()
 plt.title("Sensitivity Tracking")
 plt.show()
@@ -90,17 +96,6 @@ plt.show()
 # --- Evaluate accuracy ---
 true = true_glucose
 pred = estimates[:, 0]
-
-# # --- MARD ---
-# mard = np.mean(np.abs(true - pred) / true) * 100
-# print("MARD: {:.2f}%".format(mard))
-
-# # --- ISO 15197 compliance ---
-# iso_thresholds = np.where(true < 100, 15, 0.15 * true)
-# abs_errors = np.abs(pred - true)
-# iso_compliant = abs_errors <= iso_thresholds
-# iso95 = np.mean(iso_compliant) * 100
-# print("ISO95: {:.2f}%".format(iso95))
 
 def DetermineISOErrorCounts(estimates,realvalues):
     ####returns both amount withing 95% margins and 99% margins and a bool saying if it passes

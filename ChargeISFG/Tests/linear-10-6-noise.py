@@ -7,7 +7,6 @@ Created on Mon Jun  9 21:55:57 2025
 
 import numpy as np
 import matplotlib.pyplot as plt
-from typing import List, Tuple, Optional
 from ChargeISFG.SensorClass.LinearClass import GlucoseSensor
 
 np.random.seed(3)
@@ -16,9 +15,10 @@ np.random.seed(3)
 dt = 5 / 60  # 5 minutes in hours
 T = 24 * 14  # total hours
 time = np.arange(0, T, dt)
+sensor_noise_var = 6
 
 # --- Simulated True Glucose ---
-base_glucose = 100 + 0 * np.sin(2 * np.pi * time / (24 * 7))  # 7-day rhythm
+base_glucose = 100 + 1 * np.sin(2 * np.pi * time / (24 * 7))  # 7-day rhythm
 
 meal_times = {'breakfast': 8, 'lunch': 13, 'dinner': 19}
 def meal_spike(t, meal_hour, amplitude=40, width=1.5):
@@ -33,8 +33,8 @@ for day in range(14):
         true_glucose += meal_spike(time, center, amp, width)
 
 true_glucose_dot = np.gradient(true_glucose, dt)
-true_sensitivity = 2 - (2 * 0.02 * time / 24)**2
-sensor_output = true_sensitivity * true_glucose + np.random.normal(0, 6, size=len(time))
+true_sensitivity = 2 - (2 * 0.02 * time / 24)**1
+sensor_output = true_sensitivity * true_glucose + np.random.normal(0, sensor_noise_var, size=len(time))
 
 # --- GlucoseSensor Estimation ---
 Sensor = GlucoseSensor()
@@ -68,6 +68,7 @@ plt.plot(time, np.abs(true_glucose - estimated_glucose) / true_glucose * 100)
 plt.grid(True)
 plt.ylim(0, 10)
 plt.ylabel("Relative Error (%)")
+plt.xlabel("Time (hours)")
 plt.title("Glucose Estimation Error")
 plt.show()
 
@@ -77,7 +78,8 @@ arr= np.array(Sensor.history)
 plt.plot(time, arr[:,2], label='Estimated Sensitivity')
 plt.vlines(time[calibration_indices], 1, 2.3, alpha=0.3)
 plt.legend()
-plt.ylim(1.5, 2.3)
+plt.ylim(1.2, 2.2)
+plt.xlabel("Time (hours)")
 plt.grid()
 plt.title("Sensitivity Tracking")
 plt.show()
