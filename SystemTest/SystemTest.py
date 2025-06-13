@@ -5,14 +5,16 @@ import matplotlib.pyplot as plt
 from ChargeISFG.SensorClass.UKFClass import GlucoseUKF
 from ISFBG.TestISFGBG import GenerateBG
 
-np.random.seed(1)
-sensor_noise_var = 3
+np.random.seed(0)
+sensor_noise_var = 0
+
+
 dt=300
 
 def getDataPandas():
     script_dir = os.path.dirname(__file__)
     root_dir = os.path.dirname(script_dir)
-    filename = os.path.join(root_dir, 'ISF-BG', 'piep.csv')
+    filename = os.path.join(root_dir, 'ISFBG', 'piep.csv')
     data = pd.read_csv(
         filename,
         sep=',',
@@ -88,7 +90,7 @@ plt.figure(figsize=(12, 6))
 plt.plot(time, true_glucose, label="True Glucose")
 plt.plot(time, ref_glucose, label="ISF Glucose")
 plt.plot(time, estimates[:, 0], label="Estimated ISFG")
-plt.plot(time, GenerateBG(estimates[:, 0], true_glucose[0]), label="Estimated BG")
+plt.plot(time, GenerateBG(estimates[:, 0], time, true_glucose[0]), label="Estimated BG")
 plt.scatter(time, sensor_output / true_sensitivity, color='gray', alpha=0.3, s=10, label="Raw Sensor Output")
 plt.scatter(time[calibration_indices], ref_glucose[calibration_indices], color='red', label="Finger Prick", zorder=5)
 plt.xlabel("Time (sec)")
@@ -100,23 +102,23 @@ plt.xlim(0, 8000)
 plt.ylim(150, 210)
 plt.show()
 
-plt.figure(figsize=(12, 6))
-plt.plot(time, np.abs(ref_glucose - estimates[:, 0]) / true_glucose * 100)
-plt.grid(True)
-plt.ylim(0, 10)
-plt.ylabel("Relative Error (%)")
-plt.title("Glucose Estimation Error")
-plt.show()
-
-plt.figure(figsize=(12, 6))
-plt.plot(time.values, true_sensitivity, label='True sensitivity')
-plt.plot(time.values, estimates[:, 2], label='Estimated Sensitivity')
-#plt.vlines(time[calibration_indices], 1, 2.3, alpha=0.3)
-plt.legend()
-plt.ylim(2.8,3.2)
-plt.grid()
-plt.title("Sensitivity Tracking")
-plt.show()
+# plt.figure(figsize=(12, 6))
+# plt.plot(time, np.abs(ref_glucose - estimates[:, 0]) / true_glucose * 100)
+# plt.grid(True)
+# plt.ylim(0, 10)
+# plt.ylabel("Relative Error (%)")
+# plt.title("Glucose Estimation Error")
+# plt.show()
+#
+# plt.figure(figsize=(12, 6))
+# plt.plot(time.values, true_sensitivity, label='True sensitivity')
+# plt.plot(time.values, estimates[:, 2], label='Estimated Sensitivity')
+# #plt.vlines(time[calibration_indices], 1, 2.3, alpha=0.3)
+# plt.legend()
+# plt.ylim(2.8,3.2)
+# plt.grid()
+# plt.title("Sensitivity Tracking")
+# plt.show()
 
 
 # --- Evaluate accuracy ---

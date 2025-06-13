@@ -3,15 +3,16 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from ChargeISFG.SensorClass.LinearClass import GlucoseSensor
+from ISFBG.TestISFGBG import GenerateBG
 
 np.random.seed(1)
-sensor_noise_var = 3
+sensor_noise_var = 0
 dt=300
 
 def getDataPandas():
     script_dir = os.path.dirname(__file__)
     root_dir = os.path.dirname(script_dir)
-    filename = os.path.join(root_dir, 'ISF-BG', 'piep.csv')
+    filename = os.path.join(root_dir, 'ISFBG', 'piep.csv')
     data = pd.read_csv(
         filename,
         sep=',',
@@ -81,6 +82,7 @@ plt.figure(figsize=(12, 6))
 plt.plot(time, true_glucose, label="True Glucose")
 plt.plot(time, ref_glucose, label="ISF Glucose")
 plt.plot(time, estimated_glucose, label="Estimated Glucose")
+#plt.plot(time, GenerateBG(estimated_glucose, time, true_glucose[0]), label="Estimated BG")
 plt.scatter(time, sensor_output / true_sensitivity, color='gray', alpha=0.3, s=10, label="Raw Sensor Output")
 plt.scatter(time[calibration_indices], ref_glucose[calibration_indices], color='red', label="Finger Prick", zorder=5)
 plt.xlabel("Time (hours)")

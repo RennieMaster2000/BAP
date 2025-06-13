@@ -83,7 +83,7 @@ def GenerateBG(SensorG,times,InitialBG):
     #Cycling through array
     for i in range(1,len(SensorG)):
         print(f'Step {i}/{len(SensorG)}')
-        timejump = int(times[i]-times[i-1])*1e-9
+        timejump = int(times[i]-times[i-1])#*1e-9
         #simulate sourceless
         arraySL = array.copy()
         arraySL = Simulate(timejump,arraySL,0,Kb)
@@ -92,6 +92,8 @@ def GenerateBG(SensorG,times,InitialBG):
         bloodavg = (SensorG[i]-arraySL[sensorx])/Sc
         #print(f'Source constant: {Sc}, difference: {SensorG[i]-arraySL[sensorx]}, bloodavg: {bloodavg}')
         EstimatedBG[i]=1.5*bloodavg -0.5*EstimatedBG[i-1]#extrapolation
+        #alpha = 0.8
+        #EstimatedBG[i] = alpha * bloodavg + (1 - alpha) * EstimatedBG[i - 1]
         #update initial
         array = Simulate(timejump,array,bloodavg,Kb)
     return EstimatedBG
