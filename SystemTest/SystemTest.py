@@ -82,7 +82,7 @@ for k in range(data_len):
     estimates[k] = ukf_model.get_current_estimate()
 
 # --- Plotting ---
-true_sensitivity = true_sensitivity[::2]
+true_sensitivity = true_sensitivity[::2] # Estimated ISF Glucose
 plt.figure(figsize=(12, 6))
 plt.plot(time, true_glucose, label="True Glucose")
 plt.plot(time, ref_glucose, label="ISF Glucose")
@@ -91,7 +91,7 @@ plt.scatter(time, sensor_output / true_sensitivity, color='gray', alpha=0.3, s=1
 plt.scatter(time[calibration_indices], ref_glucose[calibration_indices], color='red', label="Finger Prick", zorder=5)
 plt.xlabel("Time (sec)")
 plt.ylabel("Glucose")
-plt.title("UKF Glucose Estimation with Sensor Drift and Slope Tracking")
+plt.title("UKF ISF Glucose Estimation")
 plt.legend()
 plt.grid(True)
 plt.xlim(0, 8000)

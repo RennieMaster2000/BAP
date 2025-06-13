@@ -65,18 +65,18 @@ time = data['cumulative_time']
 Sensor = GlucoseSensor()
 
 
-calibration_indices = np.arange(0, data_len, int(1200*2 / dt))  # change 1200*2 to change cal. interval. 300 -> every minute, 8*60*60> every 8 hour
+calibration_indices = np.arange(0, data_len, int(1200*20 / dt))  # change 1200*2 to change cal. interval. 300 -> every minute, 8*60*60> every 8 hour
 estimated_glucose = []
 
 for i in range(len(time)):
     if i in calibration_indices:
-        Sensor.add_reference_data(sensor_output[i], ref_glucose[i]+ 1*np.random.normal(0, 2))
+        Sensor.add_reference_data(sensor_output[i], ref_glucose[i]+ 0*np.random.normal(0, 2))
     estimated_glucose.append(Sensor.calculate_glucose(sensor_output[i]))
 
 # from scipy.signal import savgol_filter
 # estimates[:, 0] = savgol_filter(estimates[:, 0], 5, 1)
 # --- Plot ---
-true_sensitivity = true_sensitivity[::2]
+true_sensitivity = true_sensitivity[::2] # Estimated ISF Glucose
 plt.figure(figsize=(12, 6))
 plt.plot(time, true_glucose, label="True Glucose")
 plt.plot(time, ref_glucose, label="ISF Glucose")
@@ -85,7 +85,7 @@ plt.scatter(time, sensor_output / true_sensitivity, color='gray', alpha=0.3, s=1
 plt.scatter(time[calibration_indices], ref_glucose[calibration_indices], color='red', label="Finger Prick", zorder=5)
 plt.xlabel("Time (hours)")
 plt.ylabel("Glucose")
-plt.title("Linear Glucose Estimation")
+plt.title("Linear ISF Glucose Estimation")
 plt.legend()
 plt.grid(True)
 plt.xlim(0, 8000)
