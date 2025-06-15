@@ -153,6 +153,63 @@ def DetermineISOErrorCounts(estimates,realvalues):
         if lowerline1 and lowerline2 and upperline1 and upperline2:
             count99 = count99+1
     return count95,count99
+def DetermineISOErrorIndexes(estimates,realvalues):
+    ####returns both amount withing 95% margins and 99% margins and a bool saying if it passes
+    indexes = np.zeros(len(estimates))
+    acoef = [1,1.5,44/19,1.96,5/7,12/29,13/17,12/29]
+    bcoef = [30,5,-52.1,1.2,-390/7,650/29,-1170/17,650/29]
+    for i in range(len(estimates)):
+        #99%
+        #upperline1
+        upperline1 = False
+        if realvalues[i]<30:
+            upperline1=(estimates[i]<60)
+        elif realvalues[i]<50:
+            #0
+            upperline1=(estimates[i]<(realvalues[i]*acoef[0]+bcoef[0]))
+        elif realvalues[i]<70:
+            #1
+            upperline1=(estimates[i]<(realvalues[i]*acoef[1]+bcoef[1]))
+        elif realvalues[i]<260:
+            #2
+            upperline1=(estimates[i]<(realvalues[i]*acoef[2]+bcoef[2]))
+        else:
+            upperline1=True
+        #upperline2
+        upperline2 = False
+        if realvalues[i]<30:
+            upperline2=(estimates[i]<60)
+        elif realvalues[i]<280:
+            upperline2=(estimates[i]<(realvalues[i]*acoef[3]+bcoef[3]))
+        else:
+            upperline2=True
+        #lowerline1
+        lowerline1 = False
+        if realvalues[i]<120:
+            lowerline1=True
+        elif realvalues[i]<260:
+            lowerline1=(estimates[i]>realvalues[i]*acoef[4]+bcoef[4])
+        else:
+            lowerline1=(estimates[i]>realvalues[i]*acoef[5]+bcoef[5])
+        #lowerline2
+        lowerline2=False
+        if realvalues[i]<90:
+            lowerline2=True
+        if realvalues[i]<260:
+            lowerline2=(estimates[i]>realvalues[i]*acoef[6]+bcoef[6])
+        else:
+            lowerline2=(estimates[i]>realvalues[i]*acoef[7]+bcoef[7])
+        if lowerline1 and lowerline2 and upperline1 and upperline2:
+                indexes[i]=1;
+        
+        #95%
+        if realvalues[i]<100:
+            if abs(realvalues[i]-estimates[i])<15:
+                indexes[i]=2;
+        else:
+            if abs(realvalues[i]-estimates[i])/realvalues[i]<0.15:
+                indexes[i]=2;
+    return indexes
 
 def MARD(estimates,realvalues):
     Tard = 0
@@ -202,6 +259,49 @@ linear95,linear99 = DetermineISOErrorCounts(list['linearglucose'].values,list['b
 linear95 = linear95*100/len(list['modelglucose'].values)
 linear99 = linear99*100/len(list['modelglucose'].values)
 print(f'Linear 95%: {linear95}%, linear 99%: {linear99}')
+
+fig, axs = plt.subplots()
+#f = plt.figure()
+fig.set_figwidth(7)
+fig.set_figheight(7)
+
+lowerBCT1x = [120,120,260,550]
+lowerBCT1y = [0,30,130,250]
+upperBCT1x = [0,30,50,70,260]
+upperBCT1y = [60,60,80,110,550]
+
+lowerBCT2x = [90,260,550]
+lowerBCT2y = [0,130,250]
+upperBCT2x = [0,30,280]
+upperBCT2y = [60,60,550]
+
+lower95x = [15,100,550]
+lower95y=[0,85,467.5]
+upper95x=[0,100,550]
+upper95y=[15,115,632.5]
+
+axs.plot(lowerBCT1x,lowerBCT1y,ls='--',color='gold', label='ISO T1D 99% margins')
+axs.plot(upperBCT1x,upperBCT1y,ls='--',color='gold')
+
+axs.plot(lowerBCT2x,lowerBCT2y,ls='--',color='darkorange', label='ISO T2D 99% margins')
+axs.plot(upperBCT2x,upperBCT2y,ls='--',color='darkorange')
+
+axs.plot(lower95x,lower95y,ls='--',color='green', label='ISO 95% margins')
+axs.plot(upper95x,upper95y,ls='--',color='green')
+
+estimates = list['modelglucose'].values
+indexes = DetermineISOErrorIndexes(estimates,list['bloodglucose'].values)
+axs.scatter(list['bloodglucose'].values[indexes==2],estimates[indexes==2],color='green', label='ISO 95% & 99% compliant estimate')
+axs.scatter(list['bloodglucose'].values[indexes==1],estimates[indexes==1],color='orange', label='ISO 99% compliant estimate')
+axs.scatter(list['bloodglucose'].values[indexes==0],estimates[indexes==0],color='red', label='non ISO compliant estimate')
+
+axs.set_xlabel('reference blood glucose concentration (mg/dL)')
+axs.set_ylabel('estimated blood glucose concentration (mg/dL)')
+
+axs.axis((0,550,0,550))
+axs.legend(loc='lower right')
+
+plt.show()
 #EstimateWriting()
 '''
 data = getDataPandas()
