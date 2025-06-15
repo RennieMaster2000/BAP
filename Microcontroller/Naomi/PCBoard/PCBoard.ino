@@ -25,6 +25,10 @@
 
  */
 #include <bluefruit.h>
+#include <Arduino.h>
+#include <Adafruit_LittleFS.h>
+#include <Adafruit_TinyUSB.h>
+#include <InternalFileSystem.h>
 
 BLEClientBas  clientBas;  // battery client
 BLEClientDis  clientDis;  // device information client
