@@ -63,6 +63,43 @@ def CreateISFData(BloodGlucose,Times, skindistanceum, D,T,P,F,A,Rstarling,sigmap
                 #print(array[sensordistance])
     return SensorGlucose
 
+def CreateISFData2(BloodGlucose,Times, skindistanceum, D,T,P,F,A,Rstarling,sigmapi,Pv,Pa,Kf):
+    #Setup
+    arraylength = 25
+    sensordistance = 20
+    D = D*1e12/((skindistanceum/arraylength)**2)#adjusting diffusion
+    
+    bloodK, isfK = DetermineBloodISFConstant(P,F,A,Rstarling,sigmapi,Pv,Pa,Kf)
+    array = (BloodGlucose[0]*bloodK/(1-isfK))*np.ones(arraylength) #Initial Value
+    SensorGlucose = np.zeros(4*len(BloodGlucose)-1)
+    #Times2 = np.empty_like(np.zeros(2*len(BloodGlucose)-1),type(Times[0]))
+    #loop
+    for i in range(len(BloodGlucose)):
+        SensorGlucose[4*i]=array[sensordistance]
+        #Times2[2*i] = Times[i]
+        #sys.stdout.write("\033[F")#clear line
+        print(f'Processing: {i+1}/{len(BloodGlucose)} steps')
+        if i!=(len(BloodGlucose)-1):
+            timejump = math.floor(int(Times[i+1]-Times[i])/(T*1e9))#1e9
+            if timejump<0:
+                print('Error: Timejump negative')
+            #print(timejump)
+            for j in range(timejump):
+                source = BloodGlucose[i]+(j/timejump)*(BloodGlucose[i+1]-BloodGlucose[i])
+                array=Timestep(source,array,arraylength,isfK,bloodK,T,D)
+                #print(array[sensordistance])
+                if j==math.floor(timejump/2):
+                    #Times2[2*i+1] = Times[i]+(Times[i+1]-Times[i])/2
+                    SensorGlucose[4*i+2]=array[sensordistance]
+                if j==math.floor(timejump/4):
+                    #Times2[2*i+1] = Times[i]+(Times[i+1]-Times[i])/2
+                    SensorGlucose[4*i+1]=array[sensordistance]
+                if j==math.floor(3*timejump/4):
+                    #Times2[2*i+1] = Times[i]+(Times[i+1]-Times[i])/2
+                    SensorGlucose[4*i+3]=array[sensordistance]
+                
+    return SensorGlucose#, Times2
+
 def BigGeneration(trainfrac):
     #Data finding
     data = getDataPandas(1000000,0)
@@ -151,27 +188,32 @@ def GenerateID(id,train):
         f_object.close()
 
 
-
+'''
 #BigGeneration(0.8)
 data = getDataPandas(None,0)
 uniqueids = data['ID'].unique()[10:]
 for id in uniqueids:
     GenerateID(id,False)
 '''
-data = getDataPandas(100,0)
-data= data[data['ID']==782]
+data = getDataPandas(None,0)
+data= data[data['ID']==216]
 timelist = np.flip(data['time'].values)
 bloodlist = np.flip(data['Bglucose'].values)
-isfdata = CreateISFData(bloodlist,timelist,40,1e-10,0.01,25,5,1,0.2,25,15,35,0.978)#so problem is x is in meters rn, 100meters in total, so go to 1cm which is 10^4 smaller
+isfdata = CreateISFData2(bloodlist,timelist,40,1e-10,0.01,25,5,1,0.2,25,15,35,0.978)#so problem is x is in meters rn, 100meters in total, so go to 1cm which is 10^4 smaller
+#isfdata = isfdata + bloodlist[0] - isfdata[0]
 fig, axs = plt.subplots()
-axs.plot(timelist,bloodlist,color='red')
-axs.plot(timelist,isfdata,color='green')
-axs.legend(['Blood Glucose','Sensor Glucose'])
-axs.grid(True,which='major',linewidth='1')
-axs.grid(True,axis='x',which='minor',linewidth='0.5')
-axs.set_xlabel('Device time (hour:minute)')
-axs.set_ylabel('Glucose (mg/L)')
-axs.xaxis.set_major_formatter(mpld.DateFormatter('%H:%M'))
-axs.xaxis.set_minor_locator(mpld.MinuteLocator(byminute=None,interval=5,tz=None))
+times1 = np.linspace(0,(timelist[-1]-timelist[0])/np.timedelta64(1,'m'), len(bloodlist))
+times2 = np.linspace(0,(timelist[-1]-timelist[0])/np.timedelta64(1,'m'), len(isfdata))
+
+axs.plot(times1,bloodlist,color='red')
+axs.plot(times2[:len(isfdata)-2],isfdata[:len(isfdata)-2],color='green')
+axs.legend(['Blood Glucose Concentration','Sensor Glucose Concentration'])
+axs.grid(True)
+#axs.grid(True,which='major',linewidth='1')
+#axs.grid(True,axis='x',which='minor',linewidth='0.5')
+axs.set_xlabel('Time (minutes)')
+axs.set_ylabel('Glucose concentration (mg/L)')
+axs.set_xlim(0,110)
+#axs.xaxis.set_major_formatter(mpld.DateFormatter('%H:%M'))
+#axs.xaxis.set_minor_locator(mpld.MinuteLocator(byminute=None,interval=5,tz=None))
 plt.show()
-'''
